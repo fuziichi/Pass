@@ -1,0 +1,313 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CONFIDENTIAL - EVIDENCE_LOG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Noto+Serif+JP:wght@600;900&display=swap');
+
+        :root {
+            --paper: #d1cbc0;
+            --ink: #1a1a1a;
+            --alert: #a80000;
+        }
+
+        body {
+            background-color: #080808;
+            color: var(--paper);
+            font-family: 'Courier Prime', 'Noto Serif JP', serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* 画面の粒子ノイズ */
+        .film-grain {
+            position: fixed;
+            inset: 0;
+            background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
+            opacity: 0.15;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        /* 走査線 */
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(
+                to bottom,
+                transparent 50%,
+                rgba(0, 0, 0, 0.3) 50%
+            );
+            background-size: 100% 4px;
+            z-index: 101;
+            pointer-events: none;
+        }
+
+        /* ターミナル外枠 */
+        .crt-frame {
+            border: 2px solid #333;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%);
+            box-shadow: inset 0 0 100px rgba(0,0,0,1), 0 0 50px rgba(0,0,0,0.5);
+            position: relative;
+            overflow-y: auto;
+            max-height: 90vh;
+        }
+
+        /* 赤いビネット */
+        .blood-edge {
+            position: fixed;
+            inset: 0;
+            box-shadow: inset 0 0 150px rgba(168, 0, 0, 0.1);
+            pointer-events: none;
+            z-index: 90;
+        }
+
+        /* 入力欄：タイプライター風 */
+        input {
+            background: transparent !important;
+            border: none !important;
+            border-bottom: 2px solid var(--paper) !important;
+            color: var(--paper) !important;
+            text-transform: uppercase;
+            letter-spacing: 0.8em;
+            text-align: center;
+            outline: none !important;
+        }
+
+        /* 証拠写真（クリップ付き） */
+        .evidence-clip {
+            background: #e5e5e5;
+            padding: 15px;
+            border-radius: 2px;
+            box-shadow: 2px 5px 15px rgba(0,0,0,0.8);
+            transform: rotate(2deg);
+            color: #111;
+            position: relative;
+        }
+
+        .clip {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 15px;
+            background: #777;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* グリッチ演出 */
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-3px, 2px); }
+            40% { transform: translate(3px, -2px) skewX(5deg); }
+            60% { transform: translate(-3px, 1px); }
+            80% { transform: translate(2px, -1px); }
+            100% { transform: translate(0); }
+        }
+
+        .error-shake {
+            animation: glitch 0.2s cubic-bezier(.36,.07,.19,.97) both;
+            border-color: var(--alert) !important;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4 md:p-10">
+    <div class="film-grain"></div>
+    <div class="scanlines"></div>
+    <div class="blood-edge"></div>
+
+    <div class="w-full max-w-2xl z-10">
+        <div id="terminal" class="crt-frame rounded-lg p-6 md:p-12">
+            
+            <!-- 状態表示 -->
+            <div class="flex justify-between items-center mb-10 text-[10px] opacity-40 uppercase tracking-widest font-bold">
+                <div id="sys-msg">System: Awaiting Decryption Key...</div>
+                <div id="sys-date">Archive-ID: #880911</div>
+            </div>
+
+            <!-- メイン画面：入力 -->
+            <div id="screen-input" class="space-y-12 transition-opacity duration-700">
+                <div class="text-center">
+                    <p class="text-sm italic opacity-60 mb-8">「隠された真実を呼び起こせ」</p>
+                    <div class="relative">
+                        <input 
+                            type="text" 
+                            id="key-field" 
+                            class="w-full text-3xl font-bold py-2 px-4" 
+                            maxlength="10"
+                            placeholder="••••"
+                            autocomplete="off"
+                        >
+                    </div>
+                    <p id="error-hint" class="mt-6 text-xs text-red-800 font-bold tracking-widest opacity-0">ERROR: NO SUCH FILE IN THE DARKNESS</p>
+                </div>
+
+                <button onclick="startDecrypt()" class="w-full border border-white/20 hover:border-white/60 py-4 text-xs tracking-[0.5em] transition-all bg-white/5 uppercase">
+                    Access File
+                </button>
+            </div>
+
+            <!-- ローディング画面 -->
+            <div id="screen-loading" class="hidden text-center py-20">
+                <div id="loading-txt" class="text-xs tracking-[0.3em] opacity-40">Connecting to Archives...</div>
+                <div class="mt-4 flex justify-center space-x-1">
+                    <div class="w-1 h-4 bg-white/20 animate-bounce"></div>
+                    <div class="w-1 h-4 bg-white/40 animate-bounce [animation-delay:0.2s]"></div>
+                    <div class="w-1 h-4 bg-white/20 animate-bounce [animation-delay:0.4s]"></div>
+                </div>
+            </div>
+
+            <!-- 結果表示画面 -->
+            <div id="screen-result" class="hidden space-y-8">
+                <div class="border-b border-white/10 pb-4">
+                    <h2 id="file-title" class="text-xl md:text-2xl font-black text-white italic tracking-tighter"></h2>
+                </div>
+
+                <div class="relative">
+                    <div id="file-text" class="text-sm md:text-base leading-relaxed text-gray-400 min-h-[150px]"></div>
+                </div>
+
+                <div id="evidence-wrap" class="hidden flex justify-center py-10">
+                    <div class="evidence-clip">
+                        <div class="clip"></div>
+                        <img id="evidence-img" src="" alt="Evidence" class="w-full max-w-[300px] h-auto contrast-125 grayscale">
+                        <div class="mt-4 text-[10px] text-gray-800 font-bold border-t border-black/10 pt-2 uppercase">
+                            Evidence Exhibit-B
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-10 flex justify-center">
+                    <button onclick="resetSystem()" class="text-[9px] opacity-20 hover:opacity-100 transition-opacity tracking-[0.4em] uppercase underline">
+                        Terminate Session
+                    </button>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="mt-4 flex justify-between px-2 text-[10px] opacity-20 tracking-tighter italic">
+            <span>Logged in as: _unknown</span>
+            <span>Warning: All attempts are recorded.</span>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 【サスペンス・データ管理】
+         * パスワードは自動的に大文字で判定されます。
+         */
+        const DATABASE = [
+            {
+                pass: "NIGHT",
+                title: "深夜0時の電話",
+                content: "被害者は死の直前、誰とも知れない相手に電話をかけていた。\n「あいつが来た。計画通りだ」\nそれが最後の言葉だった。\n写真は現場に残された被害者の時計。0時で止まっているのがわかるか？",
+                image: "https://images.unsplash.com/photo-1509048191080-d2984bad6ad5?auto=format&fit=crop&q=80&w=800"
+            },
+            {
+                pass: "SECRET",
+                title: "地下の隠し扉",
+                content: "この洋館の図面には、公式には存在しない隠し部屋が一つある。\nそこへ入るには、書斎の鏡を3度叩かねばならない。\nもし鏡の向こうに視線を感じたら、すぐに逃げろ。",
+                image: "https://images.unsplash.com/photo-1519074063912-ad2fe3f51b6d?auto=format&fit=crop&q=80&w=800"
+            },
+            {
+                pass: "2468",
+                title: "犯人の遺留品",
+                content: "雪の降る夜、街灯の下に落ちていた手袋。\nその内側には、被害者のものとは異なる血液が付着していた。\n解析の結果、犯人は左手に深い傷を負っているはずだ。",
+                image: "https://images.unsplash.com/photo-1549416878-b9ca35df259a?auto=format&fit=crop&q=80&w=800"
+            }
+        ];
+
+        const keyField = document.getElementById('key-field');
+        const errorHint = document.getElementById('error-hint');
+        const terminal = document.getElementById('terminal');
+
+        // 自動大文字化と文字制限
+        keyField.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            errorHint.style.opacity = "0";
+        });
+
+        keyField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') startDecrypt();
+        });
+
+        function startDecrypt() {
+            const code = keyField.value.trim();
+            if (!code) return;
+
+            const target = DATABASE.find(d => d.pass === code);
+
+            if (target) {
+                executeLoadingSequence(target);
+            } else {
+                // エラー演出
+                terminal.classList.add('error-shake');
+                errorHint.style.opacity = "1";
+                setTimeout(() => terminal.classList.remove('error-shake'), 300);
+                keyField.value = "";
+            }
+        }
+
+        function executeLoadingSequence(data) {
+            document.getElementById('screen-input').classList.add('hidden');
+            document.getElementById('screen-loading').classList.remove('hidden');
+            document.getElementById('sys-msg').innerText = "System: Accessing Classified Fragment...";
+
+            setTimeout(() => {
+                document.getElementById('screen-loading').classList.add('hidden');
+                document.getElementById('screen-result').classList.remove('hidden');
+                typeWriterEffect(data);
+            }, 1800);
+        }
+
+        function typeWriterEffect(data) {
+            const titleEl = document.getElementById('file-title');
+            const textEl = document.getElementById('file-text');
+            const evidenceWrap = document.getElementById('evidence-wrap');
+            const evidenceImg = document.getElementById('evidence-img');
+
+            titleEl.innerText = data.title;
+            textEl.innerHTML = "";
+            evidenceWrap.classList.add('hidden');
+
+            let i = 0;
+            function type() {
+                if (i < data.content.length) {
+                    const char = data.content.charAt(i);
+                    textEl.innerHTML += char === "\n" ? "<br>" : char;
+                    i++;
+                    // 文字によって少しリズムを変える（ミステリー的な不規則性）
+                    const speed = char === "\n" ? 400 : (Math.random() * 50 + 30);
+                    setTimeout(type, speed);
+                } else {
+                    if (data.image) {
+                        evidenceWrap.classList.remove('hidden');
+                        evidenceImg.src = data.image;
+                    }
+                    document.getElementById('sys-msg').innerText = "System: Log Integrity Verified.";
+                }
+            }
+            type();
+        }
+
+        function resetSystem() {
+            terminal.classList.add('opacity-0');
+            setTimeout(() => location.reload(), 500);
+        }
+
+        window.onload = () => keyField.focus();
+    </script>
+</body>
+</html>
+
+```
+
