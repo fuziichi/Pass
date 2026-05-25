@@ -202,8 +202,8 @@
 
     <script>
         /**
-         * 【サスペンス・データ管理】
-         * パスワードは自動的に大文字で判定されます。
+         * 【データ管理】
+         * パスワードは自動的に大文字で判定
          */
         const DATABASE = [
             {
@@ -273,7 +273,7 @@
                     const char = data.content.charAt(i);
                     textEl.innerHTML += char === "\n" ? "<br>" : char;
                     i++;
-                    // 文字によって少しリズムを変える（ミステリー的な不規則性）
+                    // 文字によって少しリズムを変える
                     const speed = char === "\n" ? 400 : (Math.random() * 50 + 30);
                     setTimeout(type, speed);
                 } else {
